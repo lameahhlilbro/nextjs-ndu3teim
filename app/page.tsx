@@ -1,113 +1,185 @@
-import Image from 'next/image'
+"use client";
+import { useMemo, useState } from "react";
 
-export default function Home() {
+function countWords(s: string) {
+  return (s.trim().match(/\b\w+\b/g) || []).length;
+}
+
+export default function HomePage() {
+  const [text, setText] = useState("");
+  const [targetWords, setTargetWords] = useState(7000);
+  const [preserveQuotes, setPreserveQuotes] = useState(true);
+  const [model, setModel] = useState("gpt-4.1-mini");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState("");
+
+  const wordCount = useMemo(() => countWords(text), [text]);
+
+  async function onSummarize() {
+    setError(null);
+    setSummary("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, targetWords, model, preserveQuotes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Request failed");
+      setSummary(data.summary);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    // fixed regex
+    if (!/\.(txt|md)$/i.test(f.name)) {
+      alert("Please upload a .txt or .md file.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setText(String(reader.result || ""));
+    reader.readAsText(f);
+  }
+
+  function copy(out: string) {
+    navigator.clipboard.writeText(out);
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header className="flex items-center justify-between">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">DeepDive Summarizer</h1>
           <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
+            href="https://vercel.com/new"
+            className="text-sm underline opacity-70 hover:opacity-100"
             target="_blank"
-            rel="noopener noreferrer"
           >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
+            Deploy
           </a>
-        </div>
-      </div>
+        </header>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+        <section className="grid md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl shadow p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold">Source Text</label>
+              <span className="text-xs text-gray-500">
+                {wordCount.toLocaleString()} words
+              </span>
+            </div>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Paste up to ~20,000 words here or upload a .txt/.md file..."
+              className="w-full h-72 sm:h-96 resize-y rounded-xl border border-gray-200 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <div className="flex items-center gap-3">
+              <input type="file" accept=".txt,.md" onChange={onFile} />
+            </div>
+          </div>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
+          <div className="bg-white rounded-2xl shadow p-4 sm:p-5 space-y-4">
+            <div>
+              <label className="font-semibold">Target Length (words)</label>
+              <div className="flex items-center gap-3 mt-2">
+                <input
+                  type="range"
+                  min={1500}
+                  max={10000}
+                  step={250}
+                  value={targetWords}
+                  onChange={(e) => setTargetWords(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <span className="tabular-nums w-20 text-right">{targetWords}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="font-semibold">Model</label>
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="mt-2 w-full rounded-lg border border-gray-200 p-2"
+              >
+                <option value="gpt-4.1-mini">gpt-4.1-mini (fast & cost-efficient)</option>
+                <option value="gpt-4.1">gpt-4.1 (very strong long-context)</option>
+                <option value="gpt-4o">gpt-4o (multi-modal generalist)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                id="quotes"
+                type="checkbox"
+                checked={preserveQuotes}
+                onChange={(e) => setPreserveQuotes(e.target.checked)}
+              />
+              <label htmlFor="quotes">Preserve short quotes verbatim when pivotal</label>
+            </div>
+
+            <button
+              onClick={onSummarize}
+              disabled={loading || wordCount === 0}
+              className="w-full rounded-xl bg-indigo-600 text-white py-3 font-semibold shadow hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {loading ? "Summarizing…" : "Summarize"}
+            </button>
+
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+
+            {summary && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Summary</h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => copy(summary)}
+                      className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                    >
+                      Copy
+                    </button>
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([summary], { type: "text/markdown" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "deepdive-summary.md";
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                    >
+                      Download .md
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  readOnly
+                  value={summary}
+                  className="w-full h-72 sm:h-96 resize-y rounded-xl border border-gray-200 p-3"
+                />
+              </div>
+            )}
+          </div>
+        </section>
+
+        <footer className="text-xs text-gray-500">
+          <p>
+            Tip: The server chunks ~2,500-word segments, summarizes each, then merges
+            to your target length.
           </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore the Next.js 13 playground.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
+        </footer>
       </div>
     </main>
-  )
+  );
 }
